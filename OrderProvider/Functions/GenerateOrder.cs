@@ -21,31 +21,41 @@ namespace OrderProvider.Functions
         }
 
         [Function("GenerateOrder")]
-        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
+        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
         {
             try
             {
                 var body = await new StreamReader(req.Body).ReadToEndAsync();
-                OrderRequest data = JsonConvert.DeserializeObject<OrderRequest>(body) ?? new();
+                //OrderRequest data = JsonConvert.DeserializeObject<OrderRequest>(body) ?? new();
 
-                if (req.Headers.TryGetValues("Authorization", out var authorizationHeaders))
+                //if (req.Headers.TryGetValues("Authorization", out var authorizationHeaders))
+                //{
+                //    var token = authorizationHeaders.FirstOrDefault()?.Split(" ").Last();
+                //    //send token to validate to TokenProvider
+
+                //    var tokenHandler = new JwtSecurityTokenHandler();
+                //    var jwtTokenObject = tokenHandler.ReadJwtToken(token);
+
+                //    var claims = jwtTokenObject.Claims;
+                //    Claim? userIdClaim = claims.FirstOrDefault(c => c.Type == "userId");
+
+                //    if (userIdClaim != null)
+                //    {
+                //        var userId = userIdClaim.Value;
+                //        _orderService.CreateOrder(data, Guid.Parse(userId));
+                //        //when order created, send request to MailProvider to send confirmation email
+                //    }
+
+                //}
+
+                OrderRequest? data = JsonConvert.DeserializeObject<OrderRequest>(body);
+
+                if(data != null)
                 {
-                    var token = authorizationHeaders.FirstOrDefault()?.Split(" ").Last();
-                    //send token to validate to TokenProvider
-
-                    var tokenHandler = new JwtSecurityTokenHandler();
-                    var jwtTokenObject = tokenHandler.ReadJwtToken(token);
-
-                    var claims = jwtTokenObject.Claims;
-                    Claim? userIdClaim = claims.FirstOrDefault(c => c.Type == "userId");
-
-                    if (userIdClaim != null)
-                    {
-                        var userId = userIdClaim.Value;
-                        _orderService.CreateOrder(data, Guid.Parse(userId));
-                    }
-                    
+                    _orderService.CreateOrder(data);
                 }
+
+
                 //to modify
                 return HttpResponseData.CreateResponse(req);
             }

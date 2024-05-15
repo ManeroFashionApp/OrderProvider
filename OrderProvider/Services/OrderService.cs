@@ -1,5 +1,6 @@
 ﻿using Data.Entities;
 using Data.Enums;
+using OrderProvider.Factories;
 using OrderProvider.Models;
 
 namespace OrderProvider.Services;
@@ -7,22 +8,52 @@ namespace OrderProvider.Services;
 public class OrderService
 {
     #region CREATE
-    public OrderRequest CreateOrder(OrderRequest request, Guid userId)
-    {
+    //public OrderRequest CreateOrder(OrderRequest request, Guid userId)
+    //{
         
-        OrderEntity order = new()
-        {
-            UserId = userId,
-            Products = [],
-            DeliveryFee = request.DeliveryFee,
-            RecipientCO = request.RecipientCO,
-            Address = request.Address,
-            ZipCode = request.ZipCode,
-            City = request.City,
-            Country = request.Country,
-            Status = OrderStatus.Registered,
-            Created = DateTime.Now,
-        };
+    //    OrderEntity order = new()
+    //    {
+    //        UserId = userId,
+    //        Products = [],
+    //        DeliveryFee = request.DeliveryFee,
+    //        RecipientCO = request.RecipientCO,
+    //        Address = request.Address,
+    //        ZipCode = request.ZipCode,
+    //        City = request.City,
+    //        Country = request.Country,
+    //        Status = OrderStatus.Registered,
+    //        Created = DateTime.Now,
+    //    };
+
+    //    Dictionary<string, int> productDic = [];
+
+    //    foreach (string productId in request.Products)
+    //    {
+    //        if (productDic.ContainsKey(productId))
+    //            productDic[productId]++;
+    //        else
+    //            productDic.Add(productId, 1);
+    //    }
+
+    //    decimal orderTotalPrice = 0;
+    //    foreach(var key in productDic.Keys)
+    //    {
+    //        //send a request for the product that matches "key" to ProductProvider to get price
+    //        decimal price = 0;
+
+    //        order.Products.Add(new OrderProductEntity { OrderId = order.Id, ProductId = Guid.Parse(key), Count = productDic[key], UnitPrice = price });
+    //        orderTotalPrice += price* productDic[key];
+    //    }
+
+    //    //check if orderTotalPrice == request.TotalPrice ==> create Order in DB, return bool/orderResponse
+    //    //else return BadRequest
+    //    return new();
+    //}
+
+    public OrderRequest CreateOrder(OrderRequest request)
+    {
+
+        OrderEntity order = OrderFactory.CreateOrderEntity(request);
 
         Dictionary<string, int> productDic = [];
 
@@ -35,17 +66,23 @@ public class OrderService
         }
 
         decimal orderTotalPrice = 0;
-        foreach(var key in productDic.Keys)
+        foreach (var key in productDic.Keys)
         {
             //send a request for the product that matches "key" to ProductProvider to get price
             decimal price = 0;
 
             order.Products.Add(new OrderProductEntity { OrderId = order.Id, ProductId = Guid.Parse(key), Count = productDic[key], UnitPrice = price });
-            orderTotalPrice += price* productDic[key];
+            orderTotalPrice += price * productDic[key];
         }
 
-        //check if orderTotalPrice == request.TotalPrice ==> create Order in DB, return bool/orderResponse
-        //else return BadRequest
+        if(orderTotalPrice == request.TotalPrice) 
+        {
+            //create order in DB, return bool/orderResponse
+        }
+        else
+        {
+            //return something
+        }
         return new();
     }
     #endregion
