@@ -8,14 +8,11 @@ public class OrderEntity
     [Key]
     public Guid Id { get; set; }
 
-    //UserId from UserProvider or token
     [Required]
     public Guid UserId { get; set; }
 
-    [Required]
     public decimal DeliveryFee { get; set; }
 
-    [Required]
     public string? RecipientCO { get; set; } = null!;
 
     [Required]

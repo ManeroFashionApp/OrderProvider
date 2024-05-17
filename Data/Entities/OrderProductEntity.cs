@@ -14,6 +14,9 @@ public class OrderProductEntity
     public Guid ProductId { get; set; }
 
     [Required]
+    public string Name { get; set; } = null!;
+
+    [Required]
     public int Count { get; set; }
 
     [Required]

@@ -4,8 +4,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OrderProvider.Models;
 using OrderProvider.Services;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using System.Net;
 
 namespace OrderProvider.Functions
 {
@@ -21,43 +20,32 @@ namespace OrderProvider.Functions
         }
 
         [Function("GenerateOrder")]
-        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
+        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
         {
             try
             {
                 var body = await new StreamReader(req.Body).ReadToEndAsync();
-                //OrderRequest data = JsonConvert.DeserializeObject<OrderRequest>(body) ?? new();
-
-                //if (req.Headers.TryGetValues("Authorization", out var authorizationHeaders))
-                //{
-                //    var token = authorizationHeaders.FirstOrDefault()?.Split(" ").Last();
-                //    //send token to validate to TokenProvider
-
-                //    var tokenHandler = new JwtSecurityTokenHandler();
-                //    var jwtTokenObject = tokenHandler.ReadJwtToken(token);
-
-                //    var claims = jwtTokenObject.Claims;
-                //    Claim? userIdClaim = claims.FirstOrDefault(c => c.Type == "userId");
-
-                //    if (userIdClaim != null)
-                //    {
-                //        var userId = userIdClaim.Value;
-                //        _orderService.CreateOrder(data, Guid.Parse(userId));
-                //        //when order created, send request to MailProvider to send confirmation email
-                //    }
-
-                //}
+                var response = req.CreateResponse();
 
                 OrderRequest? data = JsonConvert.DeserializeObject<OrderRequest>(body);
 
                 if(data != null)
                 {
-                    _orderService.CreateOrder(data);
+                    bool isCreated = await _orderService.CreateOrder(data);
+                    //response.StatusCode = HttpStatusCode.OK;
+                    response.StatusCode = isCreated ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+                    response.Headers.Add("Content-Type", "application/json");
+                    //await response.WriteStringAsync(JsonConvert.SerializeObject(isCreated));
+                    
+                    await response.WriteStringAsync(JsonConvert.SerializeObject(true));
+
+                    return response;
                 }
-
-
-                //to modify
-                return HttpResponseData.CreateResponse(req);
+                else
+                {
+                    response.StatusCode=HttpStatusCode.BadRequest;
+                    return response;
+                }
             }
             catch
             {

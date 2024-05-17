@@ -1,8 +1,11 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using OrderProvider.Models;
 using OrderProvider.Services;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 
 namespace OrderProvider.Functions
@@ -19,30 +22,27 @@ namespace OrderProvider.Functions
         }
 
         [Function("GetOrders")]
-        public HttpResponseData Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
+        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
         {
             try
             {
-                if (req.Headers.TryGetValues("Authorization", out var authorizationHeaders))
+                var body = await new StreamReader(req.Body).ReadToEndAsync();
+                var response = req.CreateResponse();
+                string? userId = req.Headers.GetValues("userId").FirstOrDefault();
+
+                if (userId != null)
                 {
-                    var token = authorizationHeaders.FirstOrDefault()?.Split(" ").Last();
-                    //send token to validate to TokenProvider
-
-                    var tokenHandler = new JwtSecurityTokenHandler();
-                    var jwtTokenObject = tokenHandler.ReadJwtToken(token);
-
-                    var claims = jwtTokenObject.Claims;
-                    Claim? userIdClaim = claims.FirstOrDefault(c => c.Type == "userId");
-
-                    if (userIdClaim != null)
-                    {
-                        var userId = userIdClaim.Value;
-                        _orderService.GetMyOrders(Guid.Parse(userId));
-                    }
-
+                    List<OrderResponse> data = _orderService.GetMyOrders(Guid.Parse(userId));
+                    response.StatusCode = HttpStatusCode.OK;
+                    response.Headers.Add("Content-Type", "application/json");
+                    await response.WriteStringAsync(JsonConvert.SerializeObject(data));
+                    return response;
                 }
-                //to modify
-                return HttpResponseData.CreateResponse(req);
+                else
+                {
+                    response.StatusCode=HttpStatusCode.BadRequest;
+                    return response;
+                }
             }
             catch
             {
