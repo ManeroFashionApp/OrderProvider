@@ -2,53 +2,43 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using OrderProvider.Models;
 using OrderProvider.Services;
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Security.Claims;
 
 namespace OrderProvider.Functions
 {
-    public class GetOrders
+    public class GetOrders(ILogger<GetOrders> logger, OrderService orderService)
     {
-        private readonly ILogger<GetOrders> _logger;
-        private readonly OrderService _orderService;
-
-        public GetOrders(ILogger<GetOrders> logger, OrderService orderService)
-        {
-            _logger = logger;
-            _orderService = orderService;
-        }
+        private readonly ILogger<GetOrders> _logger = logger;
+        private readonly OrderService _orderService = orderService;
 
         [Function("GetOrders")]
         public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
         {
+            var response = req.CreateResponse();
+
             try
             {
-                var body = await new StreamReader(req.Body).ReadToEndAsync();
-                var response = req.CreateResponse();
                 string? userId = req.Headers.GetValues("userId").FirstOrDefault();
 
-                if (userId != null)
+                if (Guid.TryParse(userId, out Guid userIdGuid))
                 {
-                    List<OrderResponse> data = _orderService.GetMyOrders(Guid.Parse(userId));
-                    response.StatusCode = HttpStatusCode.OK;
+                    var result = await _orderService.GetMyOrders(userIdGuid);
+                    response.StatusCode = result.StatusCode;
                     response.Headers.Add("Content-Type", "application/json");
-                    await response.WriteStringAsync(JsonConvert.SerializeObject(data));
-                    return response;
+                    await response.WriteStringAsync(JsonConvert.SerializeObject(result.Data));
                 }
                 else
                 {
                     response.StatusCode=HttpStatusCode.BadRequest;
-                    return response;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                //to modify
-                return HttpResponseData.CreateResponse(req);
+                _logger.LogError($"{ex.Message}");
+                response.StatusCode = HttpStatusCode.InternalServerError;
             }
+            return response;
         }
     }
 }

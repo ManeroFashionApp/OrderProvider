@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using OrderProvider.Factories;
 using OrderProvider.Models;
+using System.Net;
 using System.Text;
 
 namespace OrderProvider.Services;
@@ -15,86 +16,85 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
     private readonly string? _productProviderUrl = Environment.GetEnvironmentVariable("PRODUCT_PROVIDER_URL");
 
     #region CREATE
-    public async Task<bool> CreateOrder(OrderRequest request)
+    public async Task<ServiceResultModel<OrderResponse>> CreateOrder(OrderRequest request)
     {
-
-        OrderEntity order = OrderFactory.CreateOrderEntity(request);
-
-        Dictionary<string, int> productDic = [];
-
-        foreach (string productId in request.Products)
+        ServiceResultModel<OrderResponse> resultModel = new();
+        
+        try
         {
-            if (productDic.ContainsKey(productId))
-                productDic[productId]++;
-            else
-                productDic.Add(productId, 1);
-        }
+            OrderEntity order = OrderFactory.CreateOrderEntity(request);
 
-        decimal orderTotalPrice = 0;
+            Dictionary<Guid, int> productDic = [];
 
-        List<string> productIds = [.. productDic.Keys];
-
-
-        //send that list to ProductProvider and get back list of products containing Id, name and unitprice
-        //get back something like that :
-
-        var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
-
-        if (response.IsSuccessStatusCode)
-        {
-            string responseBody = await response.Content.ReadAsStringAsync();
-            var productDetails = JsonConvert.DeserializeObject<List<OrderProductRequest>>(responseBody) ?? [];
-            List<OrderProductEntity> products = OrderFactory.CreateOrderProductEntities(productDetails);
-
-            //List<OrderProductEntity> products = [
-            //new() { ProductId = Guid.Parse("cbe3a2f5-0c3e-4f1b-a4c2-4c9c572c3082"), Name = "t-shirt", UnitPrice = 123 },
-            //new() { ProductId = Guid.Parse("cbe3a2f5-0c3e-4f1b-a4c2-4c9c572c3082"), Name = "t-shirt", UnitPrice = 123 },
-            //new() { ProductId = Guid.Parse("cbe3a2f5-0c3e-4f1b-a4c2-4c9c572c3082"), Name = "t-shirt", UnitPrice = 123 }
-            //];
-
-            foreach (var key in productDic.Keys)
+            foreach (Guid productId in request.Products)
             {
-                OrderProductEntity? product = products.FirstOrDefault(x => x.ProductId.ToString() == key);
-                if (product != null)
+                if (productDic.ContainsKey(productId))
+                    productDic[productId]++;
+                else
+                    productDic.Add(productId, 1);
+            }
+
+            List<Guid> productIds = [.. productDic.Keys];
+            var newRequest = JsonConvert.SerializeObject(productIds);
+            var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
+
+            if (response.IsSuccessStatusCode)
+            {
+                decimal orderTotalPrice = 0;
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+                List<OrderProductRequest> productDetails = JsonConvert.DeserializeObject<List<OrderProductRequest>>(responseBody) ?? [];
+                List<OrderProductEntity> products = OrderFactory.CreateOrderProductEntities(productDetails);
+
+                foreach(OrderProductEntity product in products)
                 {
+                    var key = productDic.Keys.FirstOrDefault(x => x == product.ProductId);
                     product.Count = productDic[key];
-                    order.Products.Add(product);
                     orderTotalPrice += product.UnitPrice * product.Count;
                 }
-            }
+                order.Products.AddRange(products);
 
-            if (orderTotalPrice == request.TotalPrice)
-            {
-                await _dbContext.Orders.AddAsync(order);
-                await _dbContext.SaveChangesAsync();
-                return true;
+                if (orderTotalPrice == request.TotalPrice)
+                {
+                    await _dbContext.Orders.AddAsync(order);
+                    await _dbContext.SaveChangesAsync();
+                    OrderResponse orderResponse = OrderFactory.GetOrder(order);
+                    resultModel.StatusCode = HttpStatusCode.OK;
+                    resultModel.Data = orderResponse;
+                }
+                else
+                {
+                    resultModel.StatusCode = HttpStatusCode.BadRequest;
+                }
             }
-            else
-            {
-                //return something
-            }
-            return new();
+            resultModel.StatusCode = response.StatusCode;
         }
-        return new();
-
-        
+        catch
+        {
+            resultModel.StatusCode = HttpStatusCode.InternalServerError;
+        }
+        return resultModel;
     }
     #endregion
 
     #region READ
 
-    public List<OrderResponse> GetMyOrders(Guid userId)
+    public async Task<ServiceResultModel<List<OrderResponse>>> GetMyOrders(Guid userId)
     {
+        ServiceResultModel<List<OrderResponse>> result = new();
+
         try
         {
-            List<OrderEntity> orders = _dbContext.Orders.Include(o => o.Products).Where(o => o.UserId == userId).ToList();
+            List<OrderEntity> orders = await _dbContext.Orders.Include(o => o.Products).Where(o => o.UserId == userId).ToListAsync();
             List<OrderResponse> orderResponses = OrderFactory.GetOrders(orders);
-            return orderResponses;
+            result.StatusCode = HttpStatusCode.OK;
+            result.Data = orderResponses;
         }
         catch
         {
-            return [];
+            result.StatusCode = HttpStatusCode.InternalServerError;
         }
+        return result;
     }
     #endregion
 

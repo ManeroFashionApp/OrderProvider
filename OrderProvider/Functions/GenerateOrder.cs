@@ -1,3 +1,4 @@
+using Azure;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -22,36 +23,31 @@ namespace OrderProvider.Functions
         [Function("GenerateOrder")]
         public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
         {
+            var response = req.CreateResponse();
+
             try
             {
                 var body = await new StreamReader(req.Body).ReadToEndAsync();
-                var response = req.CreateResponse();
-
                 OrderRequest? data = JsonConvert.DeserializeObject<OrderRequest>(body);
 
                 if(data != null)
                 {
-                    bool isCreated = await _orderService.CreateOrder(data);
-                    //response.StatusCode = HttpStatusCode.OK;
-                    response.StatusCode = isCreated ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+                    var result = await _orderService.CreateOrder(data);
+                    response.StatusCode = result.StatusCode;
                     response.Headers.Add("Content-Type", "application/json");
-                    //await response.WriteStringAsync(JsonConvert.SerializeObject(isCreated));
-                    
-                    await response.WriteStringAsync(JsonConvert.SerializeObject(true));
-
-                    return response;
+                    await response.WriteStringAsync(JsonConvert.SerializeObject(result.Data));
                 }
                 else
                 {
                     response.StatusCode=HttpStatusCode.BadRequest;
-                    return response;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                //to modify
-                return HttpResponseData.CreateResponse(req);
+                _logger.LogError($"{ex.Message}");
+                response.StatusCode = HttpStatusCode.InternalServerError;
             }
+            return response;
         }
     }
 }

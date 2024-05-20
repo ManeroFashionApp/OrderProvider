@@ -40,7 +40,18 @@ public static class OrderFactory
         return orderResponses;
     }
 
-    private static List<OrderProductResponse> GetProductResponse(List<OrderProductEntity> products)
+    public static OrderResponse GetOrder(OrderEntity order)
+    {
+        return new()
+        {
+            Id = order.Id,
+            Status = order.Status,
+            Created = order.Created,
+            Products = GetProductResponse(order.Products)
+        };
+    }
+
+    public static List<OrderProductResponse> GetProductResponse(List<OrderProductEntity> products)
     {
         List<OrderProductResponse> response = [];
 
