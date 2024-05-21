@@ -5,6 +5,7 @@ namespace OrderProvider.Models;
 public class OrderRequest
 {
     public Guid UserId { get; set; }
+    public string UserEmailAddress { get; set; } = null!;
     public List<Guid> Products { get; set; } = [];
     public decimal TotalPrice { get; set; }
 
