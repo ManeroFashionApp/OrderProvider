@@ -68,7 +68,10 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
                     resultModel.StatusCode = HttpStatusCode.BadRequest;
                 }
             }
-            resultModel.StatusCode = response.StatusCode;
+            else
+            {
+                resultModel.StatusCode = response.StatusCode;
+            }
         }
         catch
         {
