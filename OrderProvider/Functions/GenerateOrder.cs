@@ -1,4 +1,3 @@
-using Azure;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -6,9 +5,6 @@ using Newtonsoft.Json;
 using OrderProvider.Models;
 using OrderProvider.Services;
 using System.Net;
-using Azure.Messaging.ServiceBus;
-using System.Text;
-using Microsoft.AspNetCore.SignalR.Protocol;
 
 namespace OrderProvider.Functions
 {

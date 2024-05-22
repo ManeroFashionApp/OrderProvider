@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace OrderProvider.Models;
+﻿namespace OrderProvider.Models;
 
 public class OrderRequest
 {
@@ -10,6 +8,9 @@ public class OrderRequest
     public decimal TotalPrice { get; set; }
 
     public decimal DeliveryFee { get; set; }
+
+    public string FirstName { get; set; } = null!;
+    public string LastName { get; set; } = null!;
 
     public string? RecipientCO { get; set; } = null!;
 

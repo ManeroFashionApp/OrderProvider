@@ -13,6 +13,8 @@ public static class OrderFactory
             UserId = request.UserId,
             Products = [],
             DeliveryFee = request.DeliveryFee,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
             RecipientCO = request.RecipientCO,
             Address = request.Address,
             ZipCode = request.ZipCode,
@@ -33,7 +35,8 @@ public static class OrderFactory
             {
                 Id = order.Id,
                 Status = order.Status,
-                Created = order.Created,
+                Created = order.Created.Date,
+                Total = order.Products.Select(op => op.UnitPrice * op.Count).Sum(),
                 Products = GetProductResponse(order.Products)
             });
         }
@@ -46,7 +49,8 @@ public static class OrderFactory
         {
             Id = order.Id,
             Status = order.Status,
-            Created = order.Created,
+            Created = order.Created.Date,
+            Total = order.Products.Select(op => op.UnitPrice * op.Count).Sum(),
             Products = GetProductResponse(order.Products)
         };
     }
