@@ -1,6 +1,7 @@
 ﻿using Azure.Messaging.ServiceBus;
 using Data.Contexts;
 using Data.Entities;
+using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using OrderProvider.Factories;
@@ -25,17 +26,8 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
         {
             OrderEntity order = OrderFactory.CreateOrderEntity(request);
 
-            Dictionary<Guid, int> productDic = [];
+            List<Guid> productIds = request.Products.Select(p => p.Id).ToList();
 
-            foreach (Guid productId in request.Products)
-            {
-                if (productDic.ContainsKey(productId))
-                    productDic[productId]++;
-                else
-                    productDic.Add(productId, 1);
-            }
-
-            List<Guid> productIds = [.. productDic.Keys];
             var newRequest = JsonConvert.SerializeObject(productIds);
             var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
 
@@ -49,9 +41,12 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
 
                 foreach(OrderProductEntity product in products)
                 {
-                    var key = productDic.Keys.FirstOrDefault(x => x == product.ProductId);
-                    product.Count = productDic[key];
-                    orderTotalPrice += product.UnitPrice * product.Count;
+                    OrderProductRequest? productRequest = request.Products.FirstOrDefault(x => x.Id == product.ProductId);
+                    if (productRequest != null)
+                    {
+                        product.Count = productRequest.Count;
+                        orderTotalPrice += product.UnitPrice * product.Count;
+                    }
                 }
                 order.Products.AddRange(products);
 

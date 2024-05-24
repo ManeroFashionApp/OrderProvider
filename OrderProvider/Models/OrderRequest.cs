@@ -4,7 +4,7 @@ public class OrderRequest
 {
     public Guid UserId { get; set; }
     public string UserEmailAddress { get; set; } = null!;
-    public List<Guid> Products { get; set; } = [];
+    public List<OrderProductRequest> Products { get; set; } = [];
     public decimal TotalPrice { get; set; }
 
     public decimal DeliveryFee { get; set; }
