@@ -1,7 +1,6 @@
 ﻿using Azure.Messaging.ServiceBus;
 using Data.Contexts;
 using Data.Entities;
-using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using OrderProvider.Factories;
@@ -27,46 +26,53 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
             OrderEntity order = OrderFactory.CreateOrderEntity(request);
 
             List<Guid> productIds = request.Products.Select(p => p.Id).ToList();
-
-            var newRequest = JsonConvert.SerializeObject(productIds);
-            var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
-
-            if (response.IsSuccessStatusCode)
+            if (productIds.Count > 0)
             {
-                decimal orderTotalPrice = 0;
+                var newRequest = JsonConvert.SerializeObject(productIds);
+                var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
 
-                string responseBody = await response.Content.ReadAsStringAsync();
-                List<OrderProductRequest> productDetails = JsonConvert.DeserializeObject<List<OrderProductRequest>>(responseBody) ?? [];
-                List<OrderProductEntity> products = OrderFactory.CreateOrderProductEntities(productDetails);
-
-                foreach(OrderProductEntity product in products)
+                if (response.IsSuccessStatusCode)
                 {
-                    OrderProductRequest? productRequest = request.Products.FirstOrDefault(x => x.Id == product.ProductId);
-                    if (productRequest != null)
+                    decimal orderTotalPrice = 0;
+
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    List<OrderProductRequest> productDetails = JsonConvert.DeserializeObject<List<OrderProductRequest>>(responseBody) ?? [];
+                    List<OrderProductEntity> products = OrderFactory.CreateOrderProductEntities(productDetails);
+
+                    foreach (OrderProductEntity product in products)
                     {
-                        product.Count = productRequest.Count;
-                        orderTotalPrice += product.UnitPrice * product.Count;
+                        OrderProductRequest? productRequest = request.Products.FirstOrDefault(x => x.Id == product.ProductId);
+                        if (productRequest != null)
+                        {
+                            product.Count = productRequest.Count;
+                            orderTotalPrice += product.UnitPrice * product.Count;
+                        }
                     }
-                }
-                order.Products.AddRange(products);
+                    order.Products.AddRange(products);
 
-                if (orderTotalPrice == request.TotalPrice)
-                {
-                    await _dbContext.Orders.AddAsync(order);
-                    await _dbContext.SaveChangesAsync();
-                    OrderResponse orderResponse = OrderFactory.GetOrder(order);
-                    resultModel.StatusCode = HttpStatusCode.OK;
-                    resultModel.Data = orderResponse;
+                    if (orderTotalPrice == request.TotalPrice)
+                    {
+                        await _dbContext.Orders.AddAsync(order);
+                        await _dbContext.SaveChangesAsync();
+                        OrderResponse orderResponse = OrderFactory.GetOrder(order);
+                        resultModel.StatusCode = HttpStatusCode.OK;
+                        resultModel.Data = orderResponse;
+                    }
+                    else
+                    {
+                        resultModel.StatusCode = HttpStatusCode.BadRequest;
+                    }
                 }
                 else
                 {
-                    resultModel.StatusCode = HttpStatusCode.BadRequest;
+                    resultModel.StatusCode = response.StatusCode;
                 }
             }
             else
             {
-                resultModel.StatusCode = response.StatusCode;
+                resultModel.StatusCode = HttpStatusCode.BadRequest;
             }
+            
         }
         catch
         {
