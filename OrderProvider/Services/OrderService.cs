@@ -29,6 +29,8 @@ public class OrderService(OrderDBContext dbContext, HttpClient httpClient)
             if (productIds.Count > 0)
             {
                 var newRequest = JsonConvert.SerializeObject(productIds);
+
+                //FOR TESTING: replace _productProviderUrl with a random (but valid) url, for example "https://google.com/"
                 var response = await _httpClient.PostAsync(_productProviderUrl, new StringContent(JsonConvert.SerializeObject(productIds), Encoding.UTF8, "application/json"));
 
                 if (response.IsSuccessStatusCode)

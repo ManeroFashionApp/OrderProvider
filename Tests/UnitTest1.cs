@@ -1,5 +1,6 @@
 using Data.Contexts;
 using Data.Entities;
+using Data.Enums;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Moq.Protected;
@@ -12,14 +13,12 @@ using System.Text;
 public class OrderServiceTests
 {
     private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-    private readonly HttpClient _httpClient;
     private readonly DbContextOptions<OrderDBContext> _dbContextOptions;
     private readonly OrderDBContext _dbContext;
 
     public OrderServiceTests()
     {
         _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-        _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
         _dbContextOptions = new DbContextOptionsBuilder<OrderDBContext>()
             .UseInMemoryDatabase(databaseName: "OrderTestDB")
             .Options;
@@ -32,18 +31,26 @@ public class OrderServiceTests
         // Arrange
         var orderRequest = new OrderRequest
         {
+            UserId = Guid.NewGuid(),
+            UserEmailAddress = "alice.azmr@gmail.com",
             Products =
             [
-                new() { Id = Guid.NewGuid(), Count = 2 },
-                new() { Id = Guid.NewGuid(), Count = 3 }
+                new() { Id = Guid.NewGuid(), ProductName = "t-shirt", Count = 2, Price = 20 },
+                new() { Id = Guid.NewGuid(), ProductName = "dress", Count = 3, Price = 20 }
             ],
-            TotalPrice = 100
+            TotalPrice = 100,
+            FirstName = "Alice",
+            LastName = "Az",
+            Address = "Någotvägen 9",
+            ZipCode = "12345",
+            City = "Stockholm",
+            Country = "Sweden"
         };
 
         var productDetails = new List<OrderProductRequest>
         {
-            new() { Id = orderRequest.Products[0].Id, Price = 20 },
-            new() { Id = orderRequest.Products[1].Id, Price = 20 }
+            new() { Id = orderRequest.Products[0].Id, ProductName = "t-shirt", Price = 20 },
+            new() { Id = orderRequest.Products[1].Id, ProductName = "dress", Price = 20 }
         };
 
         var responseMessage = new HttpResponseMessage
@@ -60,9 +67,13 @@ public class OrderServiceTests
             )
             .ReturnsAsync(responseMessage);
 
-        var orderService = new OrderService(_dbContext, _httpClient);
+        HttpClient client = new HttpClient(_mockHttpMessageHandler.Object);
+
+        var orderService = new OrderService(_dbContext, client);
 
         // Act
+        //note: replace _productProviderUrl (url from environment variables) with a random (but valid) url,
+        //otherwise gets in the catch
         var result = await orderService.CreateOrder(orderRequest);
 
         // Assert
@@ -80,16 +91,16 @@ public class OrderServiceTests
         {
             Products =
             [
-                new() { Id = Guid.NewGuid(), Count = 2 },
-                new() { Id = Guid.NewGuid(), Count = 3 }
+                 new() { Id = Guid.NewGuid(), ProductName = "t-shirt", Count = 2, Price = 20 },
+                new() { Id = Guid.NewGuid(), ProductName = "dress", Count = 3, Price = 20 }
             ],
-            TotalPrice = 50.0m // Set to a different total price to force a failure
+            TotalPrice = 50 // Set to a different total price to force a failure
         };
 
         var productDetails = new List<OrderProductRequest>
         {
-            new() { Id = orderRequest.Products[0].Id, Price = 20 },
-            new() { Id = orderRequest.Products[1].Id, Price = 20 }
+            new() { Id = orderRequest.Products[0].Id, ProductName = "t-shirt", Price = 20 },
+            new() { Id = orderRequest.Products[1].Id, ProductName = "dress", Price = 20 }
         };
 
         var responseMessage = new HttpResponseMessage
@@ -106,7 +117,9 @@ public class OrderServiceTests
             )
             .ReturnsAsync(responseMessage);
 
-        var orderService = new OrderService(_dbContext, _httpClient);
+        HttpClient client = new HttpClient(_mockHttpMessageHandler.Object);
+
+        var orderService = new OrderService(_dbContext, client);
 
         // Act
         var result = await orderService.CreateOrder(orderRequest);
@@ -128,9 +141,23 @@ public class OrderServiceTests
             new() {
                 Id = Guid.NewGuid(),
                 UserId = userId,
+                FirstName = "Alice",
+                LastName = "Az",
+                Address = "Någotvägen 9",
+                ZipCode = "12345",
+                City = "Stockholm",
+                Country = "Sweden",
+                Status = OrderStatus.Registered,
+                Created = DateTime.Now,
                 Products =
                 [
-                    new() { Id = random.Next(100), ProductId = Guid.NewGuid(), UnitPrice = 10, Count = 1 }
+                    new() 
+                    { 
+                        Id = random.Next(100), 
+                        ProductId = Guid.NewGuid(),
+                        Name = "t-shirt",
+                        UnitPrice = 10, 
+                        Count = 1 }
                 ]
             }
         };
@@ -145,7 +172,7 @@ public class OrderServiceTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.NotNull(result.Data);
-        Assert.Equal(1, result.Data.Count);
+        Assert.Equal(orders[0].Products[0].Count, result.Data.Count);
         Assert.Equal(orders[0].Id, result.Data[0].Id);
     }
 
@@ -156,7 +183,7 @@ public class OrderServiceTests
         var userId = Guid.NewGuid();
         var orderService = new OrderService(_dbContext, new HttpClient());
 
-        // Act & Assert
+        // Act
         var result = await orderService.GetMyOrders(userId);
 
         // Assert
